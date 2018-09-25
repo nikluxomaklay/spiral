@@ -1,43 +1,70 @@
-import getopt
-import sys
+import argparse
 
 import numpy as np
 
-X = 'x'
-Y = 'y'
-# 'Шаг' - на сколько ячеек сдвигается указатель за раз.
-STEP = 1
-
-# Сообщение с подсказкой. Показывается при запуске с параметром 'help'
-HELP_TEXT = 'main.py -n <n> [-s][help]'
+# Максимальное значение в ячейках матрицы
+MATRIX_VALUE_LIMIT = 10000
+MATRIX_VALUE_LENGTH = len(str(MATRIX_VALUE_LIMIT))
 
 
-def generate_matrix(size):
+def check_positive(value):
+    """Проверка, что аргумент - положительный int"""
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(
+            f"{value} is an invalid positive int value")
+
+    return ivalue
+
+
+def parse_args():
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument(
+        '-n',
+        type=check_positive,
+        help='Определяет размер матрицы 2n-1 x 2n-1',
+        action='store'
+    )
+    arg_parser.add_argument(
+        '-s', '--show',
+        help='Флаг, указывающий необходимость вывода на экран матрицы',
+        action='store_true'
+    )
+
+    return arg_parser.parse_args()
+
+
+def generate_matrix(size, value_limit):
     """
     Возвращает матрицу size x size, заполненную случайными числами
-    из диапазона 0-9999
+    из диапазона [0..value_limit)
     """
-    return np.random.randint(10000, size=(size, size))
+    return np.random.randint(value_limit, size=(size, size))
 
 
 def printout_matrix(matrix):
     """Вывод матрицы на экран"""
     size = len(matrix)
+    max_value_length = len(str(matrix.max()))
+    printed_text = '\n'
     for i in range(0, size):
         for j in range(0, size):
             # Значения дополняются слева пробелами, чтобы матрица была ровной.
-            # 5 - потому что матрица запоняется значениями в диапазоне 0-9999
-            print(str(matrix[i][j]).rjust(5, ' '), end='')
-        print('\n', end='')
-    # flush
-    print()
+            printed_text = (
+                f'{printed_text}'
+                f'{str(matrix[i][j]).rjust(max_value_length + 1, " ")}'
+            )
+        printed_text = f'{printed_text}\n'
+
+    print(printed_text)
+    return printed_text
 
 
 def invert(i):
     return -i
 
 
-def printout_spiral(n, show_matrix=False):
+def printout_spiral(matrix):
     """
     Вывод значений матрицы от центра по спирали против часовой стрелки.
     Для матрицы:
@@ -48,24 +75,20 @@ def printout_spiral(n, show_matrix=False):
     4 5 8 6 9
     будет выведена такая строка:
     2 5 5 2 8 7 6 5 8 7 4 2 4 5 8 6 9 9 1 4 3 5 3 5 4
-
-    :param n: определяет размер матрицы 2n-1 x 2n-1
-    :param show_matrix: Флаг, указывающий необходимость вывода на экран матрицы
     """
-    # размерность матрицы
-    size = 2 * n - 1
-    # максимальный индекс при обращении к элементам матрицы
-    max_index = size - 1
+    printed_text = ''
 
-    matrix = generate_matrix(size)
+    # 'Шаг' - на сколько ячеек сдвигается указатель за раз.
+    STEP = 1
+    X = 'x'
+    Y = 'y'
+    # максимальный индекс при обращении к элементам матрицы
+    max_index = matrix.shape[0] - 1
     # текущее положение указателя
     pointer = {X: int(max_index / 2), Y: int(max_index / 2)}
 
-    if show_matrix:
-        printout_matrix(matrix)
-
-    # вывод центрального элемента
-    print(matrix[pointer[X]][pointer[Y]], end=' ')
+    # центральный элемент
+    printed_text = f'{printed_text}{matrix[pointer[X]][pointer[Y]]} '
     # количество шагов в текущем цикле
     number_of_steps = 1
     # направление шага вдоль оси
@@ -79,7 +102,9 @@ def printout_spiral(n, show_matrix=False):
             for _ in range(number_of_steps, 0, -1):
                 # сдвиг указателя на один шаг в заданном направлении
                 pointer[dimension] += STEP * direction
-                print(matrix[pointer[X]][pointer[Y]], end=' ')
+                printed_text = (
+                    f'{printed_text}{matrix[pointer[X]][pointer[Y]]} '
+                )
 
             # если достигли верхнего левого элемента матрицы, прерываем цикл
             if pointer[X] == 0 and pointer[Y] == 0:
@@ -90,47 +115,31 @@ def printout_spiral(n, show_matrix=False):
         # в матрице
         if number_of_steps < max_index:
             number_of_steps += 1
-    # flush
-    print()
+
+    print(printed_text)
+    return printed_text
 
 
-def main(argv):
-    n = None
-    show_matrix = False
+def main(n, value_limit=MATRIX_VALUE_LIMIT, show_matrix=False):
+    """
+    Генерирует матрицу размером 2n-1 x 2n-1,
+    заполненную рандомными значениями в диапазоне [0..value_limit).
+    Выводит элементы матрицы по спирали - от центра против часовой стрелки.
 
-    try:
-        opts, args = getopt.getopt(argv, 'n:s', ['help'])
+    :param n: определяет размер матрицы 2n-1 x 2n-1
+    :param value_limit: Максимальное значение элемента матрицы
+    :param show_matrix: Флаг, указывающий необходимость вывода на экран матрицы
+    """
+    # размерность матрицы
+    size = 2 * n - 1
+    matrix = generate_matrix(size, value_limit)
 
-        if '--help' in args:
-            print(HELP_TEXT)
-            sys.exit(0)
+    if show_matrix:
+        printout_matrix(matrix)
 
-        for opt in opts:
-            if opt[0] == '-n':
-                n = opt[1]
-            elif opt[0] == '-s':
-                show_matrix = True
-
-        if not n:
-            print(HELP_TEXT)
-            sys.exit(2)
-
-        try:
-            n = int(n)
-        except ValueError:
-            print('n должно быть целым числом')
-            sys.exit(2)
-
-        if n <= 0:
-            print('n должно быть больше нуля')
-            sys.exit(2)
-
-        printout_spiral(n, show_matrix)
-
-    except getopt.GetoptError:
-        print(HELP_TEXT)
-        sys.exit(2)
+    printout_spiral(matrix)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    args = parse_args()
+    main(args.n, show_matrix=args.show)
